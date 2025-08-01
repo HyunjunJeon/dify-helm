@@ -1,9 +1,4 @@
-# dify-helm
-[![Github All Releases](https://img.shields.io/github/downloads/borispolonsky/dify-helm/total.svg)]()
-[![Release Charts](https://github.com/BorisPolonsky/dify-helm/actions/workflows/release.yml/badge.svg)](https://github.com/BorisPolonsky/dify-helm/actions/workflows/release.yml)
-[![Artifact Hub](https://img.shields.io/endpoint?url=https://artifacthub.io/badge/repository/dify-helm)](https://artifacthub.io/packages/search?repo=dify-helm)
-
-Deploy [langgenius/dify](https://github.com/langgenius/dify), an LLM based chat bot app on kubernetes with helm chart.
+# dify-helm based customize
 
 ## 📚 목차
 
@@ -11,7 +6,7 @@ Deploy [langgenius/dify](https://github.com/langgenius/dify), an LLM based chat 
 - [아키텍처 개요](#-아키텍처-개요)
 - [네트워크 구조](#-네트워크-구조)
 - [지원 컴포넌트](#-지원-컴포넌트)
-- [커스터마이징](#-커스터마이징)
+- [커스터마이징](#-api-web-커스터마이징)
 - [Azure AKS 배포](#-azure-aks-배포)
 - [스토리지 설정](#-스토리지-설정)
 - [Vector Database 설정](#-vector-database-설정)
@@ -20,14 +15,8 @@ Deploy [langgenius/dify](https://github.com/langgenius/dify), an LLM based chat 
 
 ## 🚀 빠른 시작
 
-### 기본 설치
-```bash
-helm repo add dify https://borispolonsky.github.io/dify-helm
-helm repo update
-helm install my-release dify/dify
-```
+### **무조건 커스텀 설정으로 설치**
 
-### 커스텀 설정으로 설치
 ```bash
 helm install dify ./charts/dify \
   --namespace dify \
@@ -43,9 +32,9 @@ Dify는 마이크로서비스 아키텍처로 구성되어 있으며, 각 컴포
 
 | 컴포넌트 | 이미지 | 포트 | 역할 |
 |---------|-------|------|------|
-| **API** | `langgenius/dify-api:1.6.0` | 5001 | RESTful API 서버, 비즈니스 로직 처리 |
-| **Web** | `langgenius/dify-web:1.6.0` | 3000 | 웹 UI 프론트엔드 |
-| **Worker** | `langgenius/dify-api:1.6.0` | - | 백그라운드 작업 처리 (Celery) |
+| **API** | `langgenius/dify-api:1.7.0` | 5001 | RESTful API 서버, 비즈니스 로직 처리 |
+| **Web** | `langgenius/dify-web:1.7.0` | 3000 | 웹 UI 프론트엔드 |
+| **Worker** | `langgenius/dify-api:1.7.0` | - | 백그라운드 작업 처리 (Celery) |
 | **Sandbox** | `langgenius/dify-sandbox:0.2.12` | 8194 | 안전한 코드 실행 환경 |
 | **Plugin Daemon** | `langgenius/dify-plugin-daemon:0.1.3` | 5002, 5003 | 플러그인 관리 및 실행 |
 | **SSRF Proxy** | `ubuntu/squid:latest` | 3128 | 외부 요청 보안 프록시 |
@@ -58,58 +47,58 @@ graph TB
     %% External Traffic Entry Points
     Internet[🌐 인터넷] --> Ingress[🚪 Ingress Controller]
     Internet --> LB[⚖️ LoadBalancer Service]
-    
+
     %% Main Traffic Flow
     Ingress --> ProxyService[🔄 Proxy Service<br/>Port: 80]
     LB --> ProxyService
-    
+
     %% Proxy Pod and Routing
     ProxyService --> ProxyPod[📦 Proxy Pod<br/>nginx:latest<br/>Port: 80]
-    
+
     %% Backend Services Routing
     ProxyPod -->|API Endpoints| APIService[🔧 API Service<br/>Port: 5001]
     ProxyPod -->|Web Pages| WebService[🌐 Web Service<br/>Port: 3000]
     ProxyPod -->|Plugin Routes| PluginService[🔌 Plugin Daemon Service<br/>Port: 5002]
     ProxyPod -->|Marketplace| MarketplaceAPI[🛒 Marketplace API<br/>External]
-    
+
     %% Backend Pods
     APIService --> APIPod[📦 API Pod<br/>langgenius/dify-api:1.6.0<br/>Port: 5001]
     WebService --> WebPod[📦 Web Pod<br/>langgenius/dify-web:1.6.0<br/>Port: 3000]
     PluginService --> PluginPod[📦 Plugin Daemon Pod<br/>langgenius/dify-plugin-daemon:0.1.3<br/>Port: 5002, 5003]
-    
+
     %% Worker Pod (Background Processing)
     WorkerPod[📦 Worker Pod<br/>langgenius/dify-api:1.6.0<br/>Background Tasks]
-    
+
     %% Sandbox Service
     SandboxService[🏖️ Sandbox Service<br/>Port: 8194] --> SandboxPod[📦 Sandbox Pod<br/>langgenius/dify-sandbox:0.2.12<br/>Port: 8194]
-    
+
     %% SSRF Proxy Service
     SSRFService[🛡️ SSRF Proxy Service<br/>Port: 3128] --> SSRFPod[📦 SSRF Proxy Pod<br/>ubuntu/squid:latest<br/>Port: 3128]
-    
+
     %% Internal Communications
     APIPod -.->|Code Execution| SandboxService
     APIPod -.->|SSRF Protection| SSRFService
     APIPod -.->|Plugin Management| PluginService
     WorkerPod -.->|Background Tasks| APIPod
-    
+
     %% Data Layer - Databases
     subgraph DataLayer [🗄️ 데이터 계층]
         PostgresService[🐘 PostgreSQL Service<br/>Port: 5432]
         RedisService[🔴 Redis Service<br/>Port: 6379]
         VectorDBService[🧮 Vector DB Service]
     end
-    
+
     %% Database Connections
     APIPod -.->|Database Operations| PostgresService
     WorkerPod -.->|Database Operations| PostgresService
     PluginPod -.->|Database Operations| PostgresService
-    
+
     APIPod -.->|Cache & Sessions| RedisService
     WorkerPod -.->|Queue Processing| RedisService
-    
+
     APIPod -.->|Vector Storage| VectorDBService
     WorkerPod -.->|Vector Operations| VectorDBService
-    
+
     %% Storage Layer
     subgraph StorageLayer [💾 스토리지 계층]
         StorageType{Storage Type}
@@ -118,17 +107,17 @@ graph TB
         AzureStorage[☁️ Azure Blob]
         GCSStorage[☁️ Google Cloud Storage]
     end
-    
+
     %% Storage Connections
     APIPod -.->|File Storage| StorageType
     WorkerPod -.->|File Storage| StorageType
     PluginPod -.->|Plugin Storage| StorageType
-    
+
     StorageType --> LocalPVC
     StorageType --> S3Storage
     StorageType --> AzureStorage
     StorageType --> GCSStorage
-    
+
     %% Vector Database Options
     subgraph VectorOptions [🧮 Vector Database 옵션]
         WeaviateDB[🌊 Weaviate<br/>Port: 8080]
@@ -136,12 +125,12 @@ graph TB
         MilvusDB[🔍 Milvus<br/>Port: 19530]
         PGVectorDB[🐘 PGVector<br/>Port: 5432]
     end
-    
+
     VectorDBService -.-> WeaviateDB
     VectorDBService -.-> QdrantDB
     VectorDBService -.-> MilvusDB
     VectorDBService -.-> PGVectorDB
-    
+
     %% External Dependencies
     subgraph ExternalServices [🌐 외부 서비스]
         ExternalDB[(🔧 External PostgreSQL)]
@@ -149,19 +138,19 @@ graph TB
         ExternalVector[(🧮 External Vector DB)]
         ExternalStorage[(💾 External Object Storage)]
     end
-    
+
     %% External Service Connections (Alternative)
     APIPod -.->|Alternative| ExternalDB
     APIPod -.->|Alternative| ExternalRedis
     APIPod -.->|Alternative| ExternalVector
     APIPod -.->|Alternative| ExternalStorage
-    
+
     %% Styling
     classDef podClass fill:#e1f5fe,stroke:#0277bd,stroke-width:2px
     classDef serviceClass fill:#f3e5f5,stroke:#7b1fa2,stroke-width:2px
     classDef storageClass fill:#e8f5e8,stroke:#2e7d32,stroke-width:2px
     classDef externalClass fill:#fff3e0,stroke:#ef6c00,stroke-width:2px
-    
+
     class APIPod,WebPod,WorkerPod,SandboxPod,SSRFPod,PluginPod podClass
     class APIService,WebService,SandboxService,SSRFService,PluginService,ProxyService serviceClass
     class PostgresService,RedisService,VectorDBService,WeaviateDB,QdrantDB,MilvusDB,PGVectorDB storageClass
@@ -187,6 +176,7 @@ Nginx 프록시의 트래픽 라우팅:
 ## 📦 지원 컴포넌트
 
 ### Kubernetes에서 배포 가능한 컴포넌트
+
 - [x] core (`api`, `worker`, `sandbox`)
 - [x] ssrf_proxy
 - [x] proxy (via built-in `nginx` or `ingress`)
@@ -201,28 +191,24 @@ Nginx 프록시의 트래픽 라우팅:
 ### 외부 서비스 연동 지원
 
 #### 데이터베이스
+
 - [x] Redis
 - [x] PostgreSQL
 
 #### Object Storage
+
 - [x] Amazon S3
 - [x] Microsoft Azure Blob Storage
-- [x] Alibaba Cloud OSS
 - [x] Google Cloud Storage
-- [x] Tencent Cloud COS
-- [x] Huawei Cloud OBS
-- [x] Volcengine TOS
 
 #### Vector Database
+
 - [x] Weaviate
 - [x] Qdrant
 - [x] Milvus
 - [x] PGVector
-- [x] Tencent Vector DB
-- [x] MyScaleDB
-- [x] TableStore
 
-## 🎯 커스터마이징
+## 🎯 API, WEB 커스터마이징
 
 ### API 및 Web 이미지 커스터마이징
 
@@ -236,7 +222,7 @@ image:
     pullPolicy: IfNotPresent
     pullSecrets:
       - your-registry-secret
-  
+
   web:
     repository: "your-registry/custom-dify-web"
     tag: "your-custom-tag"
@@ -248,12 +234,14 @@ image:
 ### 이미지 빌드 고려사항
 
 #### API 이미지
-- **베이스**: Python 기반
+
+- **베이스**: Python Flask 기반
 - **포트**: 5001
 - **Health Check**: `/health` 엔드포인트 필요
 - **환경변수**: 기존 설정 호환성 유지
 
 #### Web 이미지
+
 - **베이스**: Node.js 기반
 - **포트**: 3000
 - **Health Check**: `/apps` 엔드포인트 필요
@@ -290,6 +278,7 @@ proxy:
 ### Azure 통합 서비스 활용
 
 #### Azure Database for PostgreSQL
+
 ```yaml
 externalPostgres:
   enabled: true
@@ -303,6 +292,7 @@ externalPostgres:
 ```
 
 #### Azure Cache for Redis
+
 ```yaml
 externalRedis:
   enabled: true
@@ -316,6 +306,7 @@ externalRedis:
 ### AKS 네트워킹 최적화
 
 #### Private Cluster 설정
+
 ```yaml
 ingress:
   enabled: true
@@ -337,6 +328,7 @@ ingress:
 ## 💾 스토리지 설정
 
 ### AWS S3
+
 ```yaml
 externalS3:
   enabled: true
@@ -351,6 +343,7 @@ externalS3:
 ```
 
 ### Azure Blob Storage
+
 ```yaml
 externalAzureBlobStorage:
   enabled: true
@@ -361,6 +354,7 @@ externalAzureBlobStorage:
 ```
 
 ### Google Cloud Storage
+
 ```yaml
 externalGCS:
   enabled: true
@@ -373,6 +367,7 @@ externalGCS:
 ## 🧮 Vector Database 설정
 
 ### Weaviate (기본 내장)
+
 ```yaml
 weaviate:
   enabled: true
@@ -386,6 +381,7 @@ weaviate:
 ```
 
 ### 외부 Weaviate
+
 ```yaml
 externalWeaviate:
   enabled: true
@@ -394,6 +390,7 @@ externalWeaviate:
 ```
 
 ### Qdrant
+
 ```yaml
 externalQdrant:
   enabled: true
@@ -406,6 +403,7 @@ externalQdrant:
 ```
 
 ### Milvus
+
 ```yaml
 externalMilvus:
   enabled: true
@@ -417,6 +415,7 @@ externalMilvus:
 ```
 
 ### PGVector
+
 ```yaml
 externalPgvector:
   enabled: true
@@ -439,7 +438,7 @@ api:
     minReplicas: 2
     maxReplicas: 10
     targetCPUUtilizationPercentage: 70
-  
+
   resources:
     requests:
       memory: "1Gi"
@@ -470,6 +469,7 @@ web:
 ### 보안 설정
 
 #### HTTPS 강제 및 보안 헤더
+
 ```yaml
 proxy:
   extraEnv:
@@ -482,6 +482,7 @@ proxy:
 ```
 
 #### Secret 관리
+
 ```yaml
 api:
   extraEnv:
@@ -500,6 +501,7 @@ api:
 ### 모니터링 설정
 
 #### Prometheus 메트릭
+
 ```yaml
 redis:
   metrics:
@@ -507,7 +509,7 @@ redis:
     serviceMonitor:
       enabled: true
       interval: 30s
-      
+
 postgresql:
   metrics:
     enabled: true
@@ -516,6 +518,7 @@ postgresql:
 ```
 
 #### Health Checks
+
 ```yaml
 api:
   livenessProbe:
@@ -537,6 +540,7 @@ api:
 ### 일반적인 문제들
 
 #### Pod 시작 실패
+
 ```bash
 # Pod 상태 확인
 kubectl get pods -n dify
@@ -549,6 +553,7 @@ kubectl describe pod <pod-name> -n dify
 ```
 
 #### 데이터베이스 연결 문제
+
 ```bash
 # 데이터베이스 연결 테스트
 kubectl run --rm -it --restart=Never postgres-client \
@@ -557,6 +562,7 @@ kubectl run --rm -it --restart=Never postgres-client \
 ```
 
 #### 스토리지 권한 문제
+
 ```bash
 # PVC 상태 확인
 kubectl get pvc -n dify
@@ -568,6 +574,7 @@ kubectl get storageclass
 ### 성능 최적화
 
 #### 리소스 모니터링
+
 ```bash
 # 리소스 사용량 확인
 kubectl top pods -n dify
@@ -575,6 +582,7 @@ kubectl top nodes
 ```
 
 #### 캐시 최적화
+
 ```yaml
 redis:
   master:
@@ -593,6 +601,7 @@ redis:
 ## 📈 운영 가이드
 
 ### 업그레이드
+
 ```bash
 # Helm 차트 업데이트
 helm repo update
@@ -602,6 +611,7 @@ helm upgrade dify dify/dify -f custom-values.yaml
 ```
 
 ### 백업
+
 ```bash
 # PostgreSQL 백업
 kubectl exec -n dify dify-postgresql-0 -- pg_dump -U postgres dify > backup.sql
@@ -611,6 +621,7 @@ kubectl exec -n dify dify-redis-master-0 -- redis-cli BGSAVE
 ```
 
 ### 스케일링
+
 ```bash
 # 수동 스케일링
 kubectl scale deployment dify-api --replicas=5 -n dify
@@ -618,26 +629,3 @@ kubectl scale deployment dify-api --replicas=5 -n dify
 # HPA 확인
 kubectl get hpa -n dify
 ```
-
-## 🤝 Contributors
-
-<a href="https://github.com/borispolonsky/dify-helm/graphs/contributors">
-  <img src="https://contrib.rocks/image?repo=borispolonsky/dify-helm" />
-</a>
-
-## 📄 라이선스
-
-이 프로젝트는 MIT 라이선스 하에 배포됩니다. 자세한 내용은 [LICENSE](LICENSE) 파일을 참조하세요.
-
-## 🆘 지원
-
-문제가 발생하거나 질문이 있으시면:
-
-1. [GitHub Issues](https://github.com/borispolonsky/dify-helm/issues)에 문의
-2. [Discussions](https://github.com/borispolonsky/dify-helm/discussions)에서 커뮤니티와 소통
-3. [Artifact Hub](https://artifacthub.io/packages/search?repo=dify-helm)에서 패키지 정보 확인
-
----
-
-⭐ 이 프로젝트가 도움이 되었다면 Star를 눌러주세요!
-

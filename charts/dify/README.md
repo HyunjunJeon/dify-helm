@@ -1,19 +1,19 @@
 # dify-helm-custom
 
-## Customized Installation
+## 커스터마이징 설치
 
-Apply the `-f` option upon `helm install`/`helm upgrade` with your own `values.yaml`.
-Fear not its extensive content as they are arranged in sections below:
+`helm install`/`helm upgrade` 명령어에 `-f` 옵션을 사용하여 자신만의 `values.yaml`을 적용하세요.
+방대한 내용이지만 아래 섹션별로 정리되어 있으니 걱정하지 마세요:
 
-1. Image: Adjust images of all Dify components
-2. Cloud-specific Custom Images: Azure ACR, AWS ECR, GCP GCR integration guides
-3. Dify Service: Customize configurations of each Dify components
-4. Middleware: Specifies the configuration of built-in middlewares
-5. External services: Substitute external services for built-in data persistence
+1. 이미지: 모든 Dify 컴포넌트의 이미지 조정
+2. 클라우드별 커스텀 이미지: Azure ACR, AWS ECR, GCP GCR 통합 가이드
+3. Dify 서비스: 각 Dify 컴포넌트의 구성 커스터마이징
+4. 미들웨어: 내장 미들웨어의 구성 설정
+5. 외부 서비스: 내장 데이터 지속성을 위한 외부 서비스 대체
 
-### 1. Adjust Images
+### 1. 이미지 조정
 
-You can specify custom images for different components:
+다양한 컴포넌트에 대해 커스텀 이미지를 지정할 수 있습니다:
 
 ```yaml
 # values.yaml
@@ -168,11 +168,11 @@ kubectl create secret docker-registry gcr-secret \
 # 또는 GKE Workload Identity 사용 (권장)
 ```
 
-### 3. Customize Dify Components
+### 3. Dify 컴포넌트 커스터마이징
 
-#### Data persistence
+#### 데이터 지속성
 
-To customize built-in data persistence, set `enabled: true` in the `persistence` section of `values.yaml` and specify the storage class and size, for instance:
+내장 데이터 지속성을 커스터마이징하려면, `values.yaml`의 `persistence` 섹션에서 `enabled: true`로 설정하고 스토리지 클래스와 크기를 지정하세요. 예를 들어:
 
 ```yaml
 # values.yaml
@@ -185,7 +185,7 @@ api:
 
 ```
 
-or desginate an existing `PersistentVolumeClaim`:
+또는 기존의 `PersistentVolumeClaim`을 지정할 수 있습니다:
 
 ```yaml
 # values.yaml
@@ -196,25 +196,25 @@ api:
       existingClaim: "your-pvc-name"
 ```
 
-#### Environment Variables
+#### 환경 변수
 
-This chart automatically manages envrionment variables for data persistence, service discovery and database connection etc. under the hood. To apply additional environment variables or override existing ones, refer to `extraEnv` section for each component:
+이 차트는 데이터 지속성, 서비스 디스커버리, 데이터베이스 연결 등을 위한 환경 변수를 자동으로 관리합니다. 추가 환경 변수를 적용하거나 기존 환경 변수를 재정의하려면, 각 컴포넌트의 `extraEnv` 섹션을 참조하세요:
 
 ```yaml
 # values.yaml
 ...
 api:
   extraEnv:
-  # The direct approach
+  # 직접 값 설정 방법
   - name: LANG
     value: "C.UTF-8"
-  # Use existing configmaps
+  # 기존 ConfigMap 사용
   - name: MY_CONFIG
     valueFrom:
       configMapKeyRef:
         name: my-config
         key: MY_CONFIG
-  # Use existing secrets
+  # 기존 Secret 사용
   - name: MY_SECRET
     valueFrom:
       secretKeyRef:
@@ -222,27 +222,27 @@ api:
         key: MY_SECRET
 ```
 
-### 4. Working with Built-in Middlewares
+### 4. 내장 미들웨어 작업
 
-Built-in `Redis` and `PostgreSQL` and `weaviate` allows users to spool up a self-contained `Dify` enviroment for a quick start. These components are supplied by third party helm charts. To customize built-in middlewares, refer to the section name and the official documents:
+내장된 `Redis`, `PostgreSQL`, `weaviate`는 사용자가 빠른 시작을 위해 자체 포함된 `Dify` 환경을 구성할 수 있도록 합니다. 이러한 컴포넌트들은 서드파티 헬름 차트에서 제공됩니다. 내장 미들웨어를 커스터마이징하려면, 섹션 이름과 공식 문서를 참조하세요:
 
-| Section | Document |
------ | --- |
-`redis` | [bitnami/redis](https://github.com/bitnami/charts/tree/main/bitnami/redis)
-`postgresql` |[bitnami/postgresql](https://github.com/bitnami/charts/tree/main/bitnami/postgresql)
-`weaviate`| [weaviate](https://github.com/weaviate/weaviate-helm)
+| 섹션 | 문서 |
+| ----- | --- |
+| `redis` | [bitnami/redis](https://github.com/bitnami/charts/tree/main/bitnami/redis) |
+| `postgresql` | [bitnami/postgresql](https://github.com/bitnami/charts/tree/main/bitnami/postgresql) |
+| `weaviate` | [weaviate](https://github.com/weaviate/weaviate-helm) |
 
-To disable them, set `enabled: false` in the corresponding section of `values.yaml` and apply external service providers:
+이들을 비활성화하려면, `values.yaml`의 해당 섹션에서 `enabled: false`로 설정하고 외부 서비스 제공자를 적용하세요:
 
 ```yaml
 # values.yaml
 redis:
-  enabled: false  # Disable built-in Redis
+  enabled: false  # 내장 Redis 비활성화
 ```
 
-### 5. Opt in External Services
+### 5. 외부 서비스 선택
 
-It's advised to utilize services from enterprise level providers over the built-in middlewares for production use. To take over built-in `Redis` for instance:
+프로덕션 환경에서는 내장 미들웨어보다 엔터프라이즈급 제공업체의 서비스를 사용하는 것이 권장됩니다. 예를 들어, 내장 `Redis`를 대체하려면:
 
 ```yaml
 # values.yaml
@@ -255,4 +255,4 @@ externalRedis:
   useSSL: false
 ```
 
-Refer to `external<Service>` sections for more details.
+자세한 내용은 `external<Service>` 섹션을 참조하세요.
